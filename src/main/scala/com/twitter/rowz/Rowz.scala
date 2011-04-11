@@ -1,15 +1,8 @@
 package com.twitter.rowz
 
-import java.sql.{ResultSet, SQLException}
-import com.twitter.querulous
-import com.twitter.querulous.evaluator.{QueryEvaluatorFactory, QueryEvaluator}
-import com.twitter.querulous.config.Connection
-import com.twitter.querulous.query.SqlQueryTimeoutException
-
-import com.twitter.gizzard
-import nameserver.NameServer
-import shards.{ShardId, ShardInfo, ShardException, ShardTimeoutException}
-import scheduler.{JobScheduler, JsonJob, CopyJob, CopyJobParser, CopyJobFactory, JsonJobParser, PrioritizingJobScheduler}
+import com.twitter.gizzard.scheduler._
+import com.twitter.gizzard.nameserver
+import com.twitter.gizzard.GizzardServer
 
 object Priority extends Enumeration {
   val High, Medium, Low = Value
@@ -27,7 +20,7 @@ class Rowz(config: com.twitter.rowz.config.Rowz) extends GizzardServer[RowzShard
 
   shardRepo += ("RowzShard" -> new RowzShardFactory(config.queryEvaluator(), config.databaseConnection))
 
-  jobCodec += ("Create".r  -> new CreateJobParser())
+  jobCodec += ("Ceate".r  -> new CreateJobParser())
   jobCodec += ("Destroy".r -> new DestroyJobParser())
 
 
@@ -41,12 +34,11 @@ class Rowz(config: com.twitter.rowz.config.Rowz) extends GizzardServer[RowzShard
 
   // set up the service listener
 
-
   val rowzService = new RowzService(findForwarding, jobScheduler, idGenerator)
 
   lazy val rowzThriftServer = {
     val processor = new thrift.TestServer.Processor(rowzService)
-    config.thriftServer(processor)
+    config.server(processor)
   }
 
   def start() {

@@ -1,45 +1,37 @@
 package com.twitter.rowz
 
+import java.sql.SQLException
 import java.sql.{SQLIntegrityConstraintViolationException, ResultSet}
 import com.twitter.querulous.evaluator.{QueryEvaluatorFactory, QueryEvaluator}
-import net.lag.configgy.ConfigMap
-import com.twitter.gizzard.shards
 import com.twitter.querulous.query.SqlQueryTimeoutException
-import java.sql.SQLException
+import com.twitter.gizzard.shards.{ShardException, ShardInfo}
 import com.twitter.gizzard.proxy.SqlExceptionWrappingProxy
-import com.twitter.xrayspecs.Time
-import com.twitter.xrayspecs.TimeConversions._
-import Shard.Cursor
 
 
-class SqlShardFactory(queryEvaluatorFactory: QueryEvaluatorFactory, config: ConfigMap)
-  extends shards.ShardFactory[Shard] {
+class SqlShardFactory(qeFactory: QueryEvaluatorFactory, conn: Connection)
+extends shards.ShardFactory[Shard] {
 
   val TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS %s (
-  id                    BIGINT                   NOT NULL,
+  id                    BIGINT UNSIGNED          NOT NULL,
   name                  VARCHAR(255)             NOT NULL,
-  created_at            INT UNSIGNED             NOT NULL,
-  updated_at            INT UNSIGNED             NOT NULL,
+  created_at            BIGINT UNSIGNED          NOT NULL,
+  updated_at            BIGINT UNSIGNED          NOT NULL,
   state                 TINYINT                  NOT NULL,
 
   PRIMARY KEY (id)
 ) TYPE=INNODB"""
 
-  def instantiate(shardInfo: shards.ShardInfo, weight: Int, children: Seq[Shard]) = {
-    val queryEvaluator = queryEvaluatorFactory(List(shardInfo.hostname), config("rowz.db.name"), config("rowz.db.username"), config("rowz.db.password"))
-    SqlExceptionWrappingProxy[Shard](new SqlShard(queryEvaluator, shardInfo, weight, children))
+  def instantiate(shardInfo: ShardInfo, weight: Int, children: Seq[RowzShard]) = {
+    val queryEvaluator = qeFactory(conn.withHost(shardInfo.hostname))
+    new SqlShard(queryEvaluator, shardInfo, weight, children)
   }
 
   def materialize(shardInfo: shards.ShardInfo) = {
     try {
-      val queryEvaluator = queryEvaluatorFactory(
-        List(shardInfo.hostname),
-        config("rowz.db.name"),
-        config("rowz.db.username"),
-        config("rowz.db.password"))
-      queryEvaluatorFactory(shardInfo.hostname, null, config("rowz.db.username"), config("rowz.db.password")).execute("CREATE DATABASE IF NOT EXISTS " + config("rowz.db.name"))
-      queryEvaluator.execute(TABLE_DDL.format(shardInfo.tablePrefix + "_rowz"))
+      val evaluator = qeFactory(connection.withHost(shardInfo.hostname).withoutDatabase)
+      evaluator.execute("CREATE DATABASE IF NOT EXISTS " + conn.database)
+      evaluator.execute(ddl.format(conn.database +"."+ info.tablePrefix))
     } catch {
       case e: SQLException => throw new shards.ShardException(e.toString)
       case e: SqlQueryTimeoutException => throw new shards.ShardTimeoutException
@@ -48,10 +40,13 @@ CREATE TABLE IF NOT EXISTS %s (
 }
 
 
-class SqlShard(private val queryEvaluator: QueryEvaluator, val shardInfo: shards.ShardInfo,
-               val weight: Int, val children: Seq[Shard]) extends Shard {
+class SqlShard(
+  queryEvaluator: QueryEvaluator,
+  val shardInfo: shards.ShardInfo,
+  val weight: Int,
+  val children: Seq[RowzShard]) extends RowzShard {
 
-  private val table = shardInfo.tablePrefix + "_rowz"
+  private val table = shardInfo.tablePrefix
 
   def create(id: Long, name: String, at: Time) = write(new Row(id, name, at, at, State.Normal))
   def destroy(row: Row, at: Time)              = write(new Row(row.id, row.name, row.createdAt, at, State.Destroyed))

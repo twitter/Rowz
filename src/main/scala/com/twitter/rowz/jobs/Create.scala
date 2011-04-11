@@ -15,7 +15,7 @@ class CreateParser(findForwarding: Long => RowzShard) extends JsonJobParser {
   }
 }
 
-class CreateJob(id: Long, name: String, at: Time, findForwarding) extends JsonJob {
+class CreateJob(id: Long, name: String, at: Time, findForwarding: Long => RowzShard) extends JsonJob {
   def toMap = {
     Map("id" -> id, "name" -> name, "at" -> at.inMilliseconds)
   }
