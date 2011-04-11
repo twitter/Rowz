@@ -1,35 +1,34 @@
 package com.twitter.rowz.jobs
 
-import com.twitter.xrayspecs.Time
-import com.twitter.xrayspecs.TimeConversions._
-import com.twitter.gizzard.jobs.UnboundJob
+import com.twitter.gizzard.jobs.{JsonJobParser, JsonJob}
+import com.twitter.util.Time
 
 
-object DestroyParser extends gizzard.jobs.UnboundJobParser[ForwardingManager] {
-  def apply(attributes: Map[String, Any]) = {
-    new Destroy(
+class DestroyParser(findForwarding: Long => RowzShard) extends JsonJobParser {
+  def apply(attributes: Map[String, Any]): JsonJob = {
+    new DestroyJob(
       new Row(
         attributes("id").asInstanceOf[Long],
         attributes("name").asInstanceOf[String],
-        Time(attributes("createdAt").asInstanceOf[Int].seconds),
-        Time(attributes("updatedAt").asInstanceOf[Int].seconds),
+        Time.fromMilliseconds(attributes("createdAt").asInstanceOf[Long]),
+        Time.fromMilliseconds(attributes("updatedAt").asInstanceOf[Long]),
         State(attributes("state").asInstanceOf[Int])),
-        Time(attributes("at").asInstanceOf[Int].seconds))
+      Time.fromMilliseconds(attributes("at").asInstanceOf[Long]))
   }
 }
 
-case class Destroy(row: Row, at: Time) extends UnboundJob[ForwardingManager] {
+class DestroyJob(row: Row, at: Time, findForwarding: Long => RowzShard) extends JsonJob {
   def toMap = {
     Map(
       "id" -> row.id,
       "name" -> row.name,
-      "createdAt" -> row.createdAt.inSeconds,
-      "updatedAt" -> row.updatedAt.inSeconds,
+      "createdAt" -> row.createdAt.inMilliseconds,
+      "updatedAt" -> row.updatedAt.inMilliseconds,
       "state" -> row.state.id,
-      "at" -> at.inSeconds)
+      "at" -> at.inMilliseconds)
   }
 
-  def apply(forwardingManager: ForwardingManager) = {
-    forwardingManager(row.id).destroy(row, at)
+  def apply() {
+    findForwarding(row.id).destroy(row, at)
   }
 }

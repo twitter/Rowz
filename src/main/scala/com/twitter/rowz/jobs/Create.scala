@@ -1,25 +1,26 @@
 package com.twitter.rowz.jobs
 
-import com.twitter.gizzard.jobs.UnboundJob
-import com.twitter.xrayspecs.Time
-import com.twitter.xrayspecs.TimeConversions._
+import com.twitter.gizzard.jobs.{JsonJobParser, JsonJob}
+import com.twitter.util.Time
 
 
-object CreateParser extends gizzard.jobs.UnboundJobParser[ForwardingManager] {
-  def apply(attributes: Map[String, Any]) = {
-    new Create(
+class CreateParser(findForwarding: Long => RowzShard) extends JsonJobParser {
+  def appy(attributes: Map[String, Any]): JsonJob = {
+    new CreateJob(
       attributes("id").asInstanceOf[Long],
       attributes("name").asInstanceOf[String],
-      Time(attributes("at").asInstanceOf[Int].seconds))
+      Time.fromMilliseconds(attributes("at").asInstanceOf[Long]),
+      findForwarding
+    )
   }
 }
 
-case class Create(id: Long, name: String, at: Time) extends UnboundJob[ForwardingManager] {
+class CreateJob(id: Long, name: String, at: Time, findForwarding) extends JsonJob {
   def toMap = {
-    Map("id" -> id, "name" -> name, "at" -> at.inSeconds)
+    Map("id" -> id, "name" -> name, "at" -> at.inMilliseconds)
   }
 
-  def apply(forwardingManager: ForwardingManager) = {
-    forwardingManager(id).create(id, name, at)
+  def apply() {
+    findForwarding(id).create(id, name, at)
   }
 }

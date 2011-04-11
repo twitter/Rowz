@@ -8,7 +8,7 @@ import com.twitter.xrayspecs.TimeConversions._
 import thrift.conversions.Row._
 
 
-class RowzService(forwardingManager: ForwardingManager, scheduler: PrioritizingJobScheduler, makeId: () => Long) extends thrift.Rowz.Iface {
+class RowzService(findForwarding: Long => RowzShard, scheduler: PrioritizingJobScheduler, makeId: () => Long) extends thrift.Rowz.Iface {
   def create(name: String, at: Int) = {
     val id = makeId()
     scheduler(Priority.High.id)(new Create(id, name, Time(at.seconds)))
@@ -20,6 +20,6 @@ class RowzService(forwardingManager: ForwardingManager, scheduler: PrioritizingJ
   }
 
   def read(id: Long) = {
-    forwardingManager(id).read(id).get.toThrift
+    findForwarding(id).read(id).get.toThrift
   }
 }
