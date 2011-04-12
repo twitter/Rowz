@@ -8,8 +8,10 @@ import com.twitter.rowz.Priority
 
 
 trait Credentials extends Connection {
-  val username = "root"
-  val password = ""
+  import scala.collection.JavaConversions._
+  val env = System.getenv().toMap
+  val username = env.getOrElse("DB_USERNAME", "root")
+  val password = env.getOrElse("DB_PASSWORD", "")
 }
 
 class TestQueryEvaluator(label: String) extends QueryEvaluator {
