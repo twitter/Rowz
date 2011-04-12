@@ -29,7 +29,7 @@ extends GizzardServer[RowzShard](config) {
   val copyPriority = Priority.Medium.id
   val copyFactory  = new RowzCopyFactory(nameServer, jobScheduler(Priority.Medium.id))
 
-  shardRepo += ("RowzShard" -> new SqlShardFactory(config.rowzQueryEvaluator(), config.databaseConnection))
+  shardRepo += ("SqlShard" -> new SqlShardFactory(config.rowzQueryEvaluator(), config.databaseConnection))
 
   jobCodec += ("Set".r     -> new SetJobParser(findForwarding))
   jobCodec += ("Destroy".r -> new DestroyJobParser(findForwarding))

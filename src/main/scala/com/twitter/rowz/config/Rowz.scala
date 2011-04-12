@@ -25,5 +25,5 @@ trait Rowz extends GizzardServer {
 
   def nodeId: Int
 
-  def admin: AdminService
+  var admin: AdminService = new AdminService
 }

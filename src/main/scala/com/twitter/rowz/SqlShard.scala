@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS %s (
   state                 TINYINT                  NOT NULL,
 
   PRIMARY KEY (id)
-) TYPE=INNODB"""
+) ENGINE=INNODB DEFAULT CHARSET=utf8
+"""
 
   def instantiate(shardInfo: ShardInfo, weight: Int, children: Seq[RowzShard]) = {
     val evaluator = new ShardExceptionWrappingQueryEvaluator(
@@ -73,7 +74,7 @@ extends RowzShard {
   }
 
   def selectAll(cursor: Cursor, count: Int) = {
-    val rows       = queryEvaluator.select(selectAllSql, count + 1, cursor)(makeRow)
+    val rows       = queryEvaluator.select(selectAllSql, cursor, count + 1)(makeRow)
     val chomped    = rows.take(count)
     val nextCursor = if (chomped.size < rows.size) Some(chomped.last.id) else None
 

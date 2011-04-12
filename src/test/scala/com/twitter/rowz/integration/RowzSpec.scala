@@ -1,40 +1,30 @@
-package com.twitter.rowz.integration
+package com.twitter.rowz
+package integration
 
-import com.twitter.gizzard.thrift.ShardManagerService
-import com.twitter.gizzard.scheduler.Priority
-import com.twitter.xrayspecs.Time
-import com.twitter.xrayspecs.TimeConversions._
-import net.lag.logging.Logger
+import com.twitter.util.Time
 import com.twitter.gizzard.shards.ShardInfo
 import com.twitter.gizzard.nameserver.Forwarding
 
 
-object RowzSpec extends ConfiguredSpecification {
+object RowzSpec extends IntegrationSpecification {
   "Rowz" should {
-    import Database._
-    Time.freeze()
-    val state = Rowz(config, w3c, databaseFactory)
-    val rowzService = state.rowzService
-    val shardInfo = new ShardInfo("com.twitter.rowz.SqlShard", "shard_a", "localhost")
-    val queryEvaluator = queryEvaluatorFactory("localhost", null, config("rowz.db.username"), config("rowz.db.password"))
+    val shardInfo = new ShardInfo("SqlShard", "shard_001", "localhost")
 
     doBefore {
-      queryEvaluator.execute("DROP DATABASE IF EXISTS " + config("rowz.nameserver.name"))
-      queryEvaluator.execute("CREATE DATABASE " + config("rowz.nameserver.name"))
-      state.nameServer.rebuildSchema()
-      queryEvaluator.execute("DROP DATABASE IF EXISTS " + config("rowz.db.name"))
-
-      val shardId = state.nameServer.createShard(shardInfo)
-      state.nameServer.setForwarding(new Forwarding(0, Math.MIN_LONG, shardId))
-      state.start()
+      reload {
+        nameServer.createShard(shardInfo)
+        nameServer.setForwarding(new Forwarding(0, Long.MinValue, shardInfo.id))
+      }
     }
 
     "row create & read" in {
-      val id = rowzService.create("row", Time.now.inSeconds)
+      val id = rowzService.create("a row")
+
       rowzService.read(id) must eventually(not(throwA[Exception]))
-      val row = rowzService.read(id)
-      row.name mustEqual "row"
-      rowzService.destroy(row, 1.second.fromNow.inSeconds)
+      rowzService.read(id).name mustEqual "a row"
+
+      Thread.sleep(20)
+      rowzService.destroy(id)
       rowzService.read(id) must eventually(throwA[Exception])
     }
   }
