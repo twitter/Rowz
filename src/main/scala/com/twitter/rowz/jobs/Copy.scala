@@ -1,8 +1,10 @@
-package com.twitter.rowz.jobs
+package com.twitter.rowz
+package jobs
 
 import com.twitter.gizzard.nameserver.NameServer
 import com.twitter.gizzard.shards.ShardId
 import com.twitter.gizzard.scheduler._
+import com.twitter.rowz.RowzShard.Cursor
 
 
 class RowzCopyFactory(nameServer: NameServer[RowzShard], scheduler: JobScheduler, defaultCount: Int = 500)
@@ -25,7 +27,7 @@ extends CopyJobParser[RowzShard] {
 class RowzCopyJob(
   sourceId: ShardId,
   destinationId: ShardId,
-  cursor: Int,
+  cursor: Cursor,
   count: Int,
   nameServer: NameServer[RowzShard],
   scheduler: JobScheduler)

@@ -1,6 +1,6 @@
 package com.twitter.rowz
 
-import com.twitter.xrayspecs.Time
+import com.twitter.util.Time
 
 
 class IdGenerator(workerId: Long) extends (() => Long) {

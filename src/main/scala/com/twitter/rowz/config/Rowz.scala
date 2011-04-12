@@ -17,11 +17,13 @@ trait RowzThriftServer extends TServer {
   var port = 7919
 }
 
-trait Rowz {
+trait Rowz extends GizzardServer {
   def server: RowzThriftServer
 
   def databaseConnection: Connection
   def rowzQueryEvaluator: QueryEvaluator
+
+  def nodeId: Int
 
   def admin: AdminService
 }

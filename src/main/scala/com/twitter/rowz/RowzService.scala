@@ -1,22 +1,26 @@
 package com.twitter.rowz
 
-import net.lag.configgy.Config
-import com.twitter.gizzard.scheduler.{PrioritizingJobScheduler, Priority}
-import jobs.{Create, Destroy}
-import com.twitter.xrayspecs.Time
-import com.twitter.xrayspecs.TimeConversions._
+import com.twitter.gizzard.scheduler.{PrioritizingJobScheduler}
+import jobs.{CreateJob, DestroyJob}
+import com.twitter.util.Time
+import com.twitter.conversions.time._
 import thrift.conversions.Row._
 
 
-class RowzService(findForwarding: Long => RowzShard, scheduler: PrioritizingJobScheduler, makeId: () => Long) extends thrift.Rowz.Iface {
-  def create(name: String, at: Int) = {
+class RowzService(
+  findForwarding: Long => RowzShard,
+  scheduler: PrioritizingJobScheduler,
+  makeId: () => Long)
+extends thrift.Rowz.Iface {
+
+  def create(name: String, at: Long) = {
     val id = makeId()
-    scheduler(Priority.High.id)(new Create(id, name, Time(at.seconds)))
+    scheduler.put(Priority.High.id, new CreateJob(id, name, Time.fromMilliseconds(at), findForwarding))
     id
   }
 
-  def destroy(row: thrift.Row, at: Int) {
-    scheduler(Priority.Low.id)(new Destroy(row.fromThrift, Time(at.seconds)))
+  def destroy(row: thrift.Row, at: Long) {
+    scheduler.put(Priority.Low.id, new DestroyJob(row.fromThrift, Time.fromMilliseconds(at), findForwarding))
   }
 
   def read(id: Long) = {

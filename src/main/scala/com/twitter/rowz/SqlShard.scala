@@ -4,12 +4,14 @@ import java.sql.SQLException
 import java.sql.{SQLIntegrityConstraintViolationException, ResultSet}
 import com.twitter.querulous.evaluator.{QueryEvaluatorFactory, QueryEvaluator}
 import com.twitter.querulous.query.SqlQueryTimeoutException
-import com.twitter.gizzard.shards.{ShardException, ShardInfo}
+import com.twitter.querulous.config.Connection
+import com.twitter.gizzard.shards.{ShardException, ShardTimeoutException, ShardInfo, ShardFactory}
 import com.twitter.gizzard.proxy.SqlExceptionWrappingProxy
+import com.twitter.util.Time
 
 
 class SqlShardFactory(qeFactory: QueryEvaluatorFactory, conn: Connection)
-extends shards.ShardFactory[Shard] {
+extends ShardFactory[RowzShard] {
 
   val TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS %s (
@@ -27,14 +29,14 @@ CREATE TABLE IF NOT EXISTS %s (
     new SqlShard(queryEvaluator, shardInfo, weight, children)
   }
 
-  def materialize(shardInfo: shards.ShardInfo) = {
+  def materialize(shardInfo: ShardInfo) = {
     try {
       val evaluator = qeFactory(connection.withHost(shardInfo.hostname).withoutDatabase)
       evaluator.execute("CREATE DATABASE IF NOT EXISTS " + conn.database)
       evaluator.execute(ddl.format(conn.database +"."+ info.tablePrefix))
     } catch {
-      case e: SQLException => throw new shards.ShardException(e.toString)
-      case e: SqlQueryTimeoutException => throw new shards.ShardTimeoutException
+      case e: SQLException => throw new ShardException(e.toString)
+      case e: SqlQueryTimeoutException => throw new ShardTimeoutException
     }
   }
 }
@@ -44,7 +46,8 @@ class SqlShard(
   queryEvaluator: QueryEvaluator,
   val shardInfo: shards.ShardInfo,
   val weight: Int,
-  val children: Seq[RowzShard]) extends RowzShard {
+  val children: Seq[RowzShard])
+extends RowzShard {
 
   private val table = shardInfo.tablePrefix
 

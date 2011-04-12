@@ -4,8 +4,8 @@ namespace rb Rowz
 struct Row {
   1: i64 id
   2: string name
-  3: i32 created_at
-  4: i32 updated_at
+  3: i64 created_at
+  4: i64 updated_at
   5: i32 state
 }
 
@@ -14,7 +14,7 @@ exception RowzException {
 }
 
 service Rowz {
-  i64 create(1: string name, 2: i32 at) throws(1: RowzException ex)
-  void destroy(1: Row row, 2: i32 at) throws(1: RowzException ex)
+  i64 create(1: string name, 2: i64 at) throws(1: RowzException ex)
+  void destroy(1: Row row, 2: i64 at) throws(1: RowzException ex)
   Row read(1: i64 id) throws(1: RowzException ex)
 }

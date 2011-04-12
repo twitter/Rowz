@@ -1,7 +1,7 @@
 package com.twitter.rowz
 
 import com.twitter.gizzard.shards
-import com.twitter.xrayspecs.Time
+import com.twitter.util.Time
 
 
 object RowzShard {

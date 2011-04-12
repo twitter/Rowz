@@ -4,40 +4,45 @@ import com.twitter.gizzard.scheduler._
 import com.twitter.gizzard.nameserver
 import com.twitter.gizzard.GizzardServer
 
+import com.twitter.rowz.jobs._
+
 object Priority extends Enumeration {
   val High, Medium, Low = Value
 }
 
-class Rowz(config: com.twitter.rowz.config.Rowz) extends GizzardServer[RowzShard](config) {
+class Rowz(config: com.twitter.rowz.config.Rowz)
+extends GizzardServer[RowzShard](config) {
 
   // define a factory for Rowz's ReadWriteShardAdapter
-  val readWriteShardAdapter = { s => new RowzShardAdapter(s) }
+  val readWriteShardAdapter = new RowzShardAdapter(_)
 
   val jobPriorities = List(Priority.High.id, Priority.Medium.id, Priority.Low.id)
 
-  val copyPriority = Priority.Medium.id
-  val copyFactory  = new RowzCopyFactory(nameServer, jobScheduler(Priority.Medium.id))
+  // create the id generator
 
-  shardRepo += ("RowzShard" -> new RowzShardFactory(config.queryEvaluator(), config.databaseConnection))
-
-  jobCodec += ("Ceate".r  -> new CreateJobParser())
-  jobCodec += ("Destroy".r -> new DestroyJobParser())
-
+  def idGenerator = new IdGenerator(config.nodeId)
 
   // curry findCurrentForwarding to pass to the service and job factories.
 
   def findForwarding(id: Long) = nameServer.findCurrentForwarding(0, id)
 
-  // create the id generator
+  val copyPriority = Priority.Medium.id
+  val copyFactory  = new RowzCopyFactory(nameServer, jobScheduler(Priority.Medium.id))
 
-  def idGenerator = new IdGenerator(config.idGenWorkerId)
+  shardRepo += ("RowzShard" -> new SqlShardFactory(config.rowzQueryEvaluator(), config.databaseConnection))
+
+  jobCodec += ("Ceate".r  -> new CreateJobParser(findForwarding))
+  jobCodec += ("Destroy".r -> new DestroyJobParser(findForwarding))
+
+
+
 
   // set up the service listener
 
   val rowzService = new RowzService(findForwarding, jobScheduler, idGenerator)
 
   lazy val rowzThriftServer = {
-    val processor = new thrift.TestServer.Processor(rowzService)
+    val processor = new thrift.Rowz.Processor(rowzService)
     config.server(processor)
   }
 
@@ -46,7 +51,7 @@ class Rowz(config: com.twitter.rowz.config.Rowz) extends GizzardServer[RowzShard
     new Thread(new Runnable { def run() { rowzThriftServer.serve() } }, "RowzServerThread").start()
   }
 
-  def shutdown(quiesce: Boolean) {
+  def shutdown(quiesce: Boolean = false) {
     rowzThriftServer.stop()
     shutdownGizzard(quiesce)
   }

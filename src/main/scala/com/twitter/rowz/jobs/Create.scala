@@ -1,10 +1,11 @@
-package com.twitter.rowz.jobs
+package com.twitter.rowz
+package jobs
 
-import com.twitter.gizzard.jobs.{JsonJobParser, JsonJob}
+import com.twitter.gizzard.scheduler.{JsonJobParser, JsonJob}
 import com.twitter.util.Time
 
 
-class CreateParser(findForwarding: Long => RowzShard) extends JsonJobParser {
+class CreateJobParser(findForwarding: Long => RowzShard) extends JsonJobParser {
   def appy(attributes: Map[String, Any]): JsonJob = {
     new CreateJob(
       attributes("id").asInstanceOf[Long],

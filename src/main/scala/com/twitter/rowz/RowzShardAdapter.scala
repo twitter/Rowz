@@ -5,7 +5,7 @@ import com.twitter.util.Time
 import RowzShard.Cursor
 
 
-class RowzShardAdapter(shard: ReadWriteShard[Shard])
+class RowzShardAdapter(shard: ReadWriteShard[RowzShard])
 extends ReadWriteShardAdapter(shard) with RowzShard {
 
   def create(id: Long, name: String, at: Time) = shard.writeOperation(_.create(id, name, at))
