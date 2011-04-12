@@ -31,7 +31,7 @@ extends GizzardServer[RowzShard](config) {
 
   shardRepo += ("RowzShard" -> new SqlShardFactory(config.rowzQueryEvaluator(), config.databaseConnection))
 
-  jobCodec += ("Ceate".r  -> new CreateJobParser(findForwarding))
+  jobCodec += ("Set".r     -> new SetJobParser(findForwarding))
   jobCodec += ("Destroy".r -> new DestroyJobParser(findForwarding))
 
 

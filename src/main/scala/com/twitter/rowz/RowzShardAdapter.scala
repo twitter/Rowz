@@ -8,10 +8,9 @@ import RowzShard.Cursor
 class RowzShardAdapter(shard: ReadWriteShard[RowzShard])
 extends ReadWriteShardAdapter(shard) with RowzShard {
 
-  def create(id: Long, name: String, at: Time) = shard.writeOperation(_.create(id, name, at))
-  def destroy(row: Row, at: Time)              = shard.writeOperation(_.destroy(row, at))
-  def write(rows: Seq[Row])                    = shard.writeOperation(_.write(rows))
+  def set(rows: Seq[Row])                   = shard.writeOperation(_.set(rows))
+  def destroy(id: Long, at: Time)           = shard.writeOperation(_.destroy(id, at))
 
-  def read(id: Long)                           = shard.readOperation(_.read(id))
-  def selectAll(cursor: Cursor, count: Int)    = shard.readOperation(_.selectAll(cursor, count))
+  def read(id: Long)                        = shard.readOperation(_.read(id))
+  def selectAll(cursor: Cursor, count: Int) = shard.readOperation(_.selectAll(cursor, count))
 }

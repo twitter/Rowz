@@ -9,8 +9,10 @@ import com.twitter.rowz.RowzShard.Cursor
 
 class RowzCopyFactory(nameServer: NameServer[RowzShard], scheduler: JobScheduler, defaultCount: Int = 500)
 extends CopyJobFactory[RowzShard] {
+  import RowzShard._
+
   def apply(source: ShardId, dest: ShardId) = {
-    new RowzCopyJob(source, dest, 0, defaultCount, nameServer, scheduler)
+    new RowzCopyJob(source, dest, CursorStart, defaultCount, nameServer, scheduler)
   }
 }
 
@@ -31,15 +33,16 @@ class RowzCopyJob(
   count: Int,
   nameServer: NameServer[RowzShard],
   scheduler: JobScheduler)
-extends CopyJob[RowzShard] {
+extends CopyJob[RowzShard](sourceId, destinationId, count, nameServer, scheduler) {
   def copyPage(source: RowzShard, dest: RowzShard, count: Int) = {
-    val rows = source.selectAll(cursor, count)
+    val (rows, nextCursor) = source.selectAll(cursor, count)
 
-    if (rows.isEmpty) {
-      None
-    } else {
-      dest.write(rows)
-      Some(new RowzCopyJob(sourceId, destinationId, rows.last.id, count, nameServer, scheduler))
+    dest.set(rows)
+
+    nextCursor map { next =>
+      new RowzCopyJob(sourceId, destinationId, next, count, nameServer, scheduler)
     }
   }
+
+  def serialize = Map("cursor" -> cursor)
 }

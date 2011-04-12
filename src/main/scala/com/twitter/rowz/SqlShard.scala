@@ -6,14 +6,14 @@ import com.twitter.querulous.evaluator.{QueryEvaluatorFactory, QueryEvaluator}
 import com.twitter.querulous.query.SqlQueryTimeoutException
 import com.twitter.querulous.config.Connection
 import com.twitter.gizzard.shards.{ShardException, ShardTimeoutException, ShardInfo, ShardFactory}
-import com.twitter.gizzard.proxy.SqlExceptionWrappingProxy
+import com.twitter.gizzard.proxy.ShardExceptionWrappingQueryEvaluator
 import com.twitter.util.Time
 
 
-class SqlShardFactory(qeFactory: QueryEvaluatorFactory, conn: Connection)
+class SqlShardFactory(qeFactory: QueryEvaluatorFactory, connection: Connection)
 extends ShardFactory[RowzShard] {
 
-  val TABLE_DDL = """
+  val ddl = """
 CREATE TABLE IF NOT EXISTS %s (
   id                    BIGINT UNSIGNED          NOT NULL,
   name                  VARCHAR(255)             NOT NULL,
@@ -25,18 +25,21 @@ CREATE TABLE IF NOT EXISTS %s (
 ) TYPE=INNODB"""
 
   def instantiate(shardInfo: ShardInfo, weight: Int, children: Seq[RowzShard]) = {
-    val queryEvaluator = qeFactory(conn.withHost(shardInfo.hostname))
-    new SqlShard(queryEvaluator, shardInfo, weight, children)
+    val evaluator = new ShardExceptionWrappingQueryEvaluator(
+      shardInfo.id,
+      qeFactory(connection.withHost(shardInfo.hostname))
+    )
+    new SqlShard(evaluator, shardInfo, weight, children)
   }
 
   def materialize(shardInfo: ShardInfo) = {
     try {
       val evaluator = qeFactory(connection.withHost(shardInfo.hostname).withoutDatabase)
-      evaluator.execute("CREATE DATABASE IF NOT EXISTS " + conn.database)
-      evaluator.execute(ddl.format(conn.database +"."+ info.tablePrefix))
+      evaluator.execute("CREATE DATABASE IF NOT EXISTS " + connection.database)
+      evaluator.execute(ddl.format(connection.database +"."+ shardInfo.tablePrefix))
     } catch {
-      case e: SQLException => throw new ShardException(e.toString)
-      case e: SqlQueryTimeoutException => throw new ShardTimeoutException
+      case e: SQLException             => throw new ShardException(e.toString)
+      case e: SqlQueryTimeoutException => throw new ShardTimeoutException(e.timeout, shardInfo.id)
     }
   }
 }
@@ -44,37 +47,61 @@ CREATE TABLE IF NOT EXISTS %s (
 
 class SqlShard(
   queryEvaluator: QueryEvaluator,
-  val shardInfo: shards.ShardInfo,
+  val shardInfo: ShardInfo,
   val weight: Int,
   val children: Seq[RowzShard])
 extends RowzShard {
+  import RowzShard._
 
   private val table = shardInfo.tablePrefix
 
-  def create(id: Long, name: String, at: Time) = write(new Row(id, name, at, at, State.Normal))
-  def destroy(row: Row, at: Time)              = write(new Row(row.id, row.name, row.createdAt, at, State.Destroyed))
+  val readSql      = "SELECT * FROM " + table + " WHERE id = ? AND state = ?"
+  val selectAllSql = "SELECT * FROM " + table + " WHERE id >= ? ORDER BY id ASC LIMIT ?"
+  val insertSql    = "INSERT INTO " + table + " (id, name, created_at, updated_at, state) VALUES (?, ?, ?, ?, ?)"
+  val updateSql    = "UPDATE " + table + " SET id = ?, name = ?, created_at = ?, updated_at = ?, state = ? WHERE updated_at < ?"
+
+  def set(rows: Seq[Row]) = {
+    rows.foreach(write)
+  }
+
+  def destroy(id: Long, at: Time) = {
+    write(Row(id, "", Time.epoch, at, RowState.Destroyed))
+  }
 
   def read(id: Long) = {
-    queryEvaluator.selectOne("SELECT * FROM " + table + " WHERE id = ? AND state = ?", id, State.Normal.id)(makeRow(_))
+    queryEvaluator.selectOne(readSql, id, RowState.Normal.id)(makeRow)
   }
 
   def selectAll(cursor: Cursor, count: Int) = {
-    val rows = queryEvaluator.select("SELECT * FROM " + table + " WHERE id > ? ORDER BY id ASC LIMIT " + count + 1, cursor)(makeRow(_))
-    val chomped = rows.take(count)
+    val rows       = queryEvaluator.select(selectAllSql, count + 1, cursor)(makeRow)
+    val chomped    = rows.take(count)
     val nextCursor = if (chomped.size < rows.size) Some(chomped.last.id) else None
+
     (chomped, nextCursor)
   }
 
-  def write(rows: Seq[Row]) = rows.foreach(write(_))
-
   def write(row: Row) = {
     val Row(id, name, createdAt, updatedAt, state) = row
+
     insertOrUpdate {
-      queryEvaluator.execute("INSERT INTO " + table + " (id, name, created_at, updated_at, state) VALUES (?, ?, ?, ?, ?)",
-        id, name, createdAt.inSeconds, updatedAt.inSeconds, state.id)
+      queryEvaluator.execute(
+        insertSql,
+        id,
+        name,
+        createdAt.inMilliseconds,
+        updatedAt.inMilliseconds,
+        state.id
+      )
     } {
-      queryEvaluator.execute("UPDATE " + table + " SET id = ?, name = ?, created_at = ?, updated_at = ?, state = ? WHERE updated_at < ?",
-        id, name, createdAt.inSeconds, updatedAt.inSeconds, state.id, updatedAt.inSeconds)
+      queryEvaluator.execute(
+        updateSql,
+        id,
+        name,
+        createdAt.inMilliseconds,
+        updatedAt.inMilliseconds,
+        state.id,
+        updatedAt.inMilliseconds
+      )
     }
   }
 
@@ -82,11 +109,20 @@ extends RowzShard {
     try {
       f
     } catch {
-      case e: SQLIntegrityConstraintViolationException => g
+      case e: ShardException => e.getCause match {
+        case cause: SQLIntegrityConstraintViolationException => g
+        case _ => throw e
+      }
     }
   }
 
   private def makeRow(row: ResultSet) = {
-    new Row(row.getLong("id"), row.getString("name"), Time(row.getLong("created_at").seconds), Time(row.getLong("updated_at").seconds), State(row.getInt("state")))
+    new Row(
+      row.getLong("id"),
+      row.getString("name"),
+      Time.fromMilliseconds(row.getLong("created_at")),
+      Time.fromMilliseconds(row.getLong("updated_at")),
+      RowState(row.getInt("state"))
+    )
   }
 }

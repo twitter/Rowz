@@ -1,7 +1,7 @@
 package com.twitter.rowz
 
 import com.twitter.gizzard.scheduler.{PrioritizingJobScheduler}
-import jobs.{CreateJob, DestroyJob}
+import jobs.{SetJob, DestroyJob}
 import com.twitter.util.Time
 import com.twitter.conversions.time._
 import thrift.conversions.Row._
@@ -13,14 +13,24 @@ class RowzService(
   makeId: () => Long)
 extends thrift.Rowz.Iface {
 
-  def create(name: String, at: Long) = {
-    val id = makeId()
-    scheduler.put(Priority.High.id, new CreateJob(id, name, Time.fromMilliseconds(at), findForwarding))
-    id
+  def create(name: String) = {
+    val at  = Time.now
+    val row = Row(makeId(), name, at, at, RowState.Normal)
+
+    scheduler.put(Priority.High.id, new SetJob(row, findForwarding))
+    row.id
   }
 
-  def destroy(row: thrift.Row, at: Long) {
-    scheduler.put(Priority.Low.id, new DestroyJob(row.fromThrift, Time.fromMilliseconds(at), findForwarding))
+  def update(row: thrift.Row) {
+    // set the row's updated_at, to control our own destiny.
+    row.setUpdated_at(Time.now.inMilliseconds)
+
+    scheduler.put(Priority.High.id, new SetJob(row.fromThrift, findForwarding))
+  }
+
+  def destroy(id: Long) {
+    val at = Time.now
+    scheduler.put(Priority.Low.id, new DestroyJob(id, at, findForwarding))
   }
 
   def read(id: Long) = {

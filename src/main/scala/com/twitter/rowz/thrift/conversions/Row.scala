@@ -11,8 +11,7 @@ object Row {
       row.id,
       row.name,
       row.createdAt.inMilliseconds,
-      row.updatedAt.inMilliseconds,
-      row.state.id
+      row.updatedAt.inMilliseconds
     )
   }
   implicit def shardingRowToRichShardingRow(row: rowz.Row) = new RichShardingRow(row)
@@ -23,7 +22,7 @@ object Row {
       row.name,
       Time.fromMilliseconds(row.created_at),
       Time.fromMilliseconds(row.updated_at),
-      State(row.state)
+      RowState.Normal
     )
   }
   implicit def thriftRowToRichThriftRow(row: thrift.Row) = new RichThriftRow(row)
