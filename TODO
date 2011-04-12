@@ -1,3 +1,0 @@
-create database rowz_nameserver;
-./gzr.rb rebuild-schema --port 7920 --hosts localhost
-./gzr.rb show --port 7920 --hosts localhost
