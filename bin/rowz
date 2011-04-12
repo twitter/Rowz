@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+
 if [ $# -lt 1 ]; then
   echo
   echo "This runs a Rowz server in the foreground, suitable for experimentation"
@@ -11,18 +11,24 @@ fi
 
 cd `dirname $0`/..
 
-echo | mysql -u "$1" --password="$2" rowz_nameserver 
-if [ $? -eq 1 ]; then
-  echo "Before running, you need to create a mysql database and:"
-  echo "mysql> CREATE DATABASE rowz_nameserver;"
-  exit 1
+mysql -u "$1" --password="$2" -e"show databases" rowz_nameserver > /dev/null 2>&1
+if [ $? -ge 1 ]; then
+  echo "Setting up a development db for rowz."
+  echo "For more involved nameserver config, check out http://github.com/twitter/gizzmo"
+mysql -u$1 -p$2 <<EOF
+create database if not exists rowz_nameserver;
+create database if not exists rowz
+EOF
 fi
-  
-if [ ! -f dist/rowz/rowz-1.0.jar ]; then
+
+if [ ! -f dist/Rowz/rowz-1.0.jar ]; then
   echo "You need to build rows first.  Try: "
-  echo "ant dist -DDB_USERNAME=fixme -DDB_PASSWORD=fixmetoo"
+  echo "sbt package-dist"
   exit 1
 fi
 
 echo "Starting rowz (it's kinda quiet at the moment)"
-java -DDB_USERNAME="$1" -DDB_PASSWORD="$2" -jar dist/rowz/rowz-1.0.jar -f config/development.conf
+env DB_USERNAME=$1 DB_PASSWORD=$2 java -jar dist/Rowz/rowz-1.0.jar config/development.scala
+
+
+

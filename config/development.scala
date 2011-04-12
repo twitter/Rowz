@@ -11,7 +11,7 @@ trait Credentials extends Connection {
   import scala.collection.JavaConversions._
   val env = System.getenv().toMap
   val username = env.getOrElse("DB_USERNAME", "root")
-  val password = env.getOrElse("DB_PASSWORD", "")
+  val password = env.getOrElse("DB_PASSWORD", null)
 }
 
 class TestQueryEvaluator(label: String) extends QueryEvaluator {
@@ -51,14 +51,14 @@ new Rowz {
 
       val connection = new Connection with Credentials {
         val hostnames = Seq("localhost")
-        val database  = "rowz_nameserver_test"
+        val database  = "rowz_nameserver"
       }
     })
   }
 
   val databaseConnection = new Connection with Credentials {
     val hostnames = Seq("localhost")
-    val database  = "rowz_test"
+    val database  = "rowz"
   }
 
   val rowzQueryEvaluator = new TestQueryEvaluator("rowz") {
@@ -89,6 +89,6 @@ new Rowz {
     Priority.Low.id    -> new TestScheduler("low")
   )
 
-  logging = new LogConfigString("level = \"debug\"\nfilename = \"test.log\"")
+  logging = new LogConfigString("level = \"debug\"")
 }
 

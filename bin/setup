@@ -1,0 +1,10 @@
+#!/bin/sh
+
+echo "Setting up a development shard for rowz."
+echo "For more involved nameserver config, check out http://github.com/twitter/gizzmo"
+
+gizzmo -Hlocalhost -P7920 create SqlShard localhost/shard_1
+gizzmo -Hlocalhost -P7920 create ReplicatingShard localhost/shard_1_replicating
+gizzmo -Hlocalhost -P7920 addlink localhost/shard_1_replicating localhost/shard_1 1
+gizzmo -Hlocalhost -P7920 addforwarding -- 0 -9223372036854775808 localhost/shard_1_replicating
+gizzmo -Hlocalhost -P7920 -f reload
