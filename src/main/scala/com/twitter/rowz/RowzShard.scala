@@ -4,13 +4,13 @@ import com.twitter.gizzard.shards
 import com.twitter.xrayspecs.Time
 
 
-object Shard {
+object RowzShard {
   type Cursor = Long
-  val CursorStart = -1
+  val CursorStart = 0
 }
 
-trait Shard extends shards.Shard {
-  import Shard.Cursor
+trait RowzShard extends shards.Shard {
+  import RowzShard._
 
   def create(id: Long, name: String, at: Time)
   def destroy(row: Row, at: Time)
