@@ -35,7 +35,7 @@ object SqlShardSpec extends ConfiguredSpecification with JMocker with ClassMocke
 
     "create, destroy then read" in {
       sqlShard.set(Seq(row))
-      sqlShard.destroy(row.id, row.createdAt + 1.second)
+      sqlShard.set(Seq(row.copy(updatedAt = row.updatedAt + 1.second, state = RowState.Destroyed)))
       sqlShard.read(row.id) mustEqual None
     }
 
@@ -45,7 +45,7 @@ object SqlShardSpec extends ConfiguredSpecification with JMocker with ClassMocke
       }
 
       "destroy, create, then read" in {
-        sqlShard.destroy(row.id, row.createdAt + 1.second)
+        sqlShard.set(Seq(row.copy(updatedAt = row.updatedAt + 1.second, state = RowState.Destroyed)))
         sqlShard.set(Seq(row))
         sqlShard.read(row.id) mustEqual None
       }

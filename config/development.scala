@@ -11,7 +11,7 @@ trait Credentials extends Connection {
   import scala.collection.JavaConversions._
   val env = System.getenv().toMap
   val username = env.getOrElse("DB_USERNAME", "root")
-  val password = env.getOrElse("DB_PASSWORD", null)
+  val password = env.getOrElse("DB_PASSWORD", "")
 }
 
 class TestQueryEvaluator(label: String) extends QueryEvaluator {

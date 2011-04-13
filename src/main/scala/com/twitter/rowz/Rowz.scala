@@ -26,15 +26,13 @@ extends GizzardServer[RowzShard](config) {
 
   def findForwarding(id: Long) = nameServer.findCurrentForwarding(0, id)
 
+
+  // wire up copy job, the rowz sql shard and single job type
   val copyPriority = Priority.Medium.id
   val copyFactory  = new RowzCopyFactory(nameServer, jobScheduler(Priority.Medium.id))
 
   shardRepo += ("SqlShard" -> new SqlShardFactory(config.rowzQueryEvaluator(), config.databaseConnection))
-
-  jobCodec += ("Set".r     -> new SetJobParser(findForwarding))
-  jobCodec += ("Destroy".r -> new DestroyJobParser(findForwarding))
-
-
+  jobCodec  += ("Set".r    -> new SetJobParser(findForwarding))
 
 
   // set up the service listener

@@ -62,56 +62,44 @@ extends RowzShard {
   val updateSql    = "UPDATE " + table + " SET id = ?, name = ?, created_at = ?, updated_at = ?, state = ? WHERE updated_at < ?"
 
   def set(rows: Seq[Row]) = {
-    rows.foreach(write)
-  }
-
-  def destroy(id: Long, at: Time) = {
-    write(Row(id, "", Time.epoch, at, RowState.Destroyed))
+    rows.foreach { row => write(row) }
   }
 
   def read(id: Long) = {
-    queryEvaluator.selectOne(readSql, id, RowState.Normal.id)(makeRow)
+    queryEvaluator.selectOne(readSql, id, RowState.Normal.id) { rs => makeRow(rs) }
   }
 
   def selectAll(cursor: Cursor, count: Int) = {
-    val rows       = queryEvaluator.select(selectAllSql, cursor, count + 1)(makeRow)
+    val rows       = queryEvaluator.select(selectAllSql, cursor, count + 1) { rs => makeRow(rs) }
     val chomped    = rows.take(count)
     val nextCursor = if (chomped.size < rows.size) Some(chomped.last.id) else None
 
     (chomped, nextCursor)
   }
 
-  def write(row: Row) = {
+  def write(row: Row) {
     val Row(id, name, createdAt, updatedAt, state) = row
 
-    insertOrUpdate {
-      queryEvaluator.execute(
-        insertSql,
+    try {
+      queryEvaluator.execute(insertSql,
         id,
         name,
         createdAt.inMilliseconds,
         updatedAt.inMilliseconds,
         state.id
       )
-    } {
-      queryEvaluator.execute(
-        updateSql,
-        id,
-        name,
-        createdAt.inMilliseconds,
-        updatedAt.inMilliseconds,
-        state.id,
-        updatedAt.inMilliseconds
-      )
-    }
-  }
-
-  private def insertOrUpdate(f: => Unit)(g: => Unit) {
-    try {
-      f
     } catch {
       case e: ShardException => e.getCause match {
-        case cause: SQLIntegrityConstraintViolationException => g
+        case cause: SQLIntegrityConstraintViolationException => {
+          queryEvaluator.execute(updateSql,
+            id,
+            name,
+            createdAt.inMilliseconds,
+            updatedAt.inMilliseconds,
+            state.id,
+            updatedAt.inMilliseconds
+          )
+        }
         case _ => throw e
       }
     }
