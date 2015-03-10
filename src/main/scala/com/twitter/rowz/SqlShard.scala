@@ -59,7 +59,7 @@ extends RowzShard {
   val readSql      = "SELECT * FROM " + table + " WHERE id = ? AND state = ?"
   val selectAllSql = "SELECT * FROM " + table + " WHERE id >= ? ORDER BY id ASC LIMIT ?"
   val insertSql    = "INSERT INTO " + table + " (id, name, created_at, updated_at, state) VALUES (?, ?, ?, ?, ?)"
-  val updateSql    = "UPDATE " + table + " SET id = ?, name = ?, created_at = ?, updated_at = ?, state = ? WHERE updated_at < ?"
+  val updateSql    = "UPDATE " + table + " SET id = ?, name = ?, created_at = ?, updated_at = ?, state = ? WHERE id = ? AND updated_at < ?"
 
   def set(rows: Seq[Row]) = {
     rows.foreach { row => write(row) }
