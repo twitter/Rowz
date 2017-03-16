@@ -1,3 +1,7 @@
+# STATUS
+
+Twitter is no longer maintaining this project or responding to issues or PRs.
+
 To build project:
 
     % env DB_USERNAME=<user> DB_PASSWORD=<pass> sbt package-dist
